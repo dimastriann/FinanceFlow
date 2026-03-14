@@ -1,0 +1,11 @@
+appId: com.financeflow.app
+---
+- launchApp
+- assertVisible: 'Finance Flow'
+- tapOn: 'Biometric Unlock'
+- assertVisible: 'Available Balance'
+- tapOn: 'Activity'
+- assertVisible: 'Latest Activity'
+- tapOn: 'Insights'
+- tapOn: 'Profile'
+- tapOn: 'Home'

@@ -1,0 +1,7 @@
+node_modules
+.expo
+dist
+package-lock.json
+build
+.next
+.DS_Store
