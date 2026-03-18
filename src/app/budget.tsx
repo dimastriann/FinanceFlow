@@ -24,7 +24,8 @@ const CategoryBudgetCard: React.FC<{
   spent: number;
   formatCurrency: (a: number) => string;
   onSetBudget: (amount: string) => void;
-}> = ({ cat, budget, spent, formatCurrency, onSetBudget }) => {
+  isAmountHidden?: boolean;
+}> = ({ cat, budget, spent, formatCurrency, onSetBudget, isAmountHidden }) => {
   const progress = budget > 0 ? Math.min(spent / budget, 1) : 0;
   const isOverBudget = spent > budget && budget > 0;
 
@@ -45,7 +46,7 @@ const CategoryBudgetCard: React.FC<{
             {cat.name}
           </Text>
           <Text className="text-xs text-gray-500 dark:text-gray-400">
-            Spent: {formatCurrency(spent)}
+            Spent: {isAmountHidden ? '•••' : formatCurrency(spent)}
           </Text>
         </View>
         <View className="w-32">
@@ -56,8 +57,13 @@ const CategoryBudgetCard: React.FC<{
             placeholderTextColor={
               budget > 0 ? (spent > budget ? '#FF3B30' : '#888') : '#999'
             }
-            defaultValue={budget > 0 ? budget.toString() : ''}
-            onEndEditing={(e) => onSetBudget(e.nativeEvent.text)}
+            defaultValue={
+              isAmountHidden ? '•••' : budget > 0 ? budget.toString() : ''
+            }
+            onEndEditing={(e) =>
+              !isAmountHidden && onSetBudget(e.nativeEvent.text)
+            }
+            editable={!isAmountHidden}
           />
         </View>
       </View>
@@ -70,7 +76,7 @@ const CategoryBudgetCard: React.FC<{
       </View>
       {isOverBudget && (
         <Text className="text-error mt-1 text-[10px] font-bold uppercase">
-          Exceeded by {formatCurrency(spent - budget)}
+          Exceeded by {isAmountHidden ? '•••' : formatCurrency(spent - budget)}
         </Text>
       )}
     </GlassCard>
@@ -88,6 +94,8 @@ export default function BudgetScreen() {
     categoryBudgets,
     setMonthlyBudget,
     setCategoryBudget,
+    budgetLogs,
+    userSettings,
     formatCurrency,
   } = useExpenseStore();
 
@@ -134,9 +142,10 @@ export default function BudgetScreen() {
               <TextInput
                 placeholder="0.00"
                 keyboardType="numeric"
-                value={overallBudget}
+                value={userSettings.isAmountHidden ? '•••' : overallBudget}
                 onChangeText={setOverallBudget}
                 onBlur={handleSaveOverall}
+                editable={!userSettings.isAmountHidden}
                 style={{
                   fontSize: 48,
                   fontWeight: 'bold',
@@ -176,10 +185,16 @@ export default function BudgetScreen() {
             </View>
             <View className="flex-row justify-between">
               <Text className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                Spent: {formatCurrency(totalSpent)}
+                Spent:{' '}
+                {userSettings.isAmountHidden
+                  ? '•••'
+                  : formatCurrency(totalSpent)}
               </Text>
               <Text className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                Remaining: {formatCurrency(monthlyBudget - totalSpent)}
+                Remaining:{' '}
+                {userSettings.isAmountHidden
+                  ? '•••'
+                  : formatCurrency(monthlyBudget - totalSpent)}
               </Text>
             </View>
           </GlassCard>
@@ -195,6 +210,7 @@ export default function BudgetScreen() {
                 budget={categoryBudgets[cat.id] || 0}
                 spent={getSpentForCategory(cat.id)}
                 formatCurrency={formatCurrency}
+                isAmountHidden={userSettings.isAmountHidden}
                 onSetBudget={async (val) => {
                   const amount = parseFloat(val);
                   if (!isNaN(amount)) {
@@ -204,6 +220,62 @@ export default function BudgetScreen() {
                 }}
               />
             ))}
+          </View>
+
+          {/* Budget History Section */}
+          <View className="mb-6">
+            <Text className="mb-6 text-xl font-bold text-gray-900 dark:text-white">
+              Budget History
+            </Text>
+            {budgetLogs.length === 0 ? (
+              <GlassCard intensity={5} className="items-center py-8">
+                <Text className="text-gray-500">
+                  No budget changes recorded yet.
+                </Text>
+              </GlassCard>
+            ) : (
+              budgetLogs.map((log) => {
+                const category = log.categoryId
+                  ? categories.find((c) => c.id === log.categoryId)
+                  : null;
+
+                return (
+                  <GlassCard
+                    key={log.id}
+                    intensity={10}
+                    className="mb-4 border-gray-100 p-4 dark:border-white/5"
+                  >
+                    <View className="flex-row items-center justify-between">
+                      <View>
+                        <Text className="font-bold text-gray-900 dark:text-white">
+                          {category
+                            ? `${category.icon} ${category.name}`
+                            : 'Overall Budget'}
+                        </Text>
+                        <Text className="text-xs text-gray-500">
+                          {new Date(log.date).toLocaleString()}
+                        </Text>
+                      </View>
+                      <View className="items-end">
+                        <Text className="font-bold text-accent">
+                          {userSettings.isAmountHidden
+                            ? '•••'
+                            : formatCurrency(log.amount)}
+                        </Text>
+                        {log.previousAmount !== null && (
+                          <Text className="text-[10px] text-gray-400">
+                            was{' '}
+                            {userSettings.isAmountHidden
+                              ? '•••'
+                              : formatCurrency(log.previousAmount)}
+                          </Text>
+                        )}
+                      </View>
+                    </View>
+                  </GlassCard>
+                );
+              })
+            )}
           </View>
         </Animated.View>
       </ScrollView>

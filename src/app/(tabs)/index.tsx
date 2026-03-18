@@ -2,6 +2,7 @@ import * as React from 'react';
 import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import Animated, {
   FadeInDown,
   useAnimatedStyle,
@@ -19,14 +20,21 @@ import { GlassCard } from '../../components/common/GlassCard';
 interface ExpenseItemProps {
   expense: Expense;
   category?: Category;
+  formatCurrency: (a: number) => string;
+  onPress?: () => void;
+  isAmountHidden?: boolean;
 }
 
-const ExpenseItem: React.FC<
-  ExpenseItemProps & { formatCurrency: (a: number) => string }
-> = ({ expense, category, formatCurrency }) => {
+const ExpenseItem: React.FC<ExpenseItemProps> = ({
+  expense,
+  category,
+  formatCurrency,
+  onPress,
+  isAmountHidden,
+}) => {
   return (
     <Animated.View entering={FadeInDown.delay(100).duration(500)}>
-      <TouchableOpacity activeOpacity={0.7} className="mb-4">
+      <TouchableOpacity activeOpacity={0.7} className="mb-4" onPress={onPress}>
         <GlassCard intensity={10} className="flex-row items-center p-4">
           <View
             className="mr-4 h-12 w-12 items-center justify-center rounded-2xl border"
@@ -50,7 +58,7 @@ const ExpenseItem: React.FC<
             </Text>
           </View>
           <Text className="text-lg font-bold text-gray-900 dark:text-white">
-            -{formatCurrency(expense.amount)}
+            -{isAmountHidden ? '•••' : formatCurrency(expense.amount)}
           </Text>
         </GlassCard>
       </TouchableOpacity>
@@ -60,8 +68,14 @@ const ExpenseItem: React.FC<
 
 export default function DashboardScreen() {
   const router = useRouter();
-  const { expenses, categories, monthlyBudget, userSettings, formatCurrency } =
-    useExpenseStore();
+  const {
+    expenses,
+    categories,
+    monthlyBudget,
+    userSettings,
+    formatCurrency,
+    toggleAmountVisibility,
+  } = useExpenseStore();
 
   const initials = userSettings.userName
     .split(' ')
@@ -114,11 +128,26 @@ export default function DashboardScreen() {
                 {userSettings.userName.split(' ')[0]}
               </Text>
             </View>
-            <TouchableOpacity className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-300 bg-gray-200 dark:border-white/10 dark:bg-white/5">
-              <Text className="font-bold text-gray-900 dark:text-white">
-                {initials}
-              </Text>
-            </TouchableOpacity>
+            <View className="flex-row items-center">
+              <TouchableOpacity
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  toggleAmountVisibility();
+                }}
+                className="mr-3 h-12 w-12 items-center justify-center rounded-2xl border border-gray-300 bg-gray-200 dark:border-white/10 dark:bg-white/5"
+              >
+                <Ionicons
+                  name={userSettings.isAmountHidden ? 'eye-off' : 'eye'}
+                  size={20}
+                  color={isDark ? '#FFF' : '#333'}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity className="h-12 w-12 items-center justify-center rounded-2xl border border-gray-300 bg-gray-200 dark:border-white/10 dark:bg-white/5">
+                <Text className="font-bold text-gray-900 dark:text-white">
+                  {initials}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </Animated.View>
 
@@ -134,10 +163,15 @@ export default function DashboardScreen() {
                 </Text>
                 <View className="flex-row items-baseline">
                   <Text className="mt-1 text-2xl font-bold text-gray-900 dark:text-white">
-                    {formatCurrency(totalExpenses)}
+                    {userSettings.isAmountHidden
+                      ? '••••••'
+                      : formatCurrency(totalExpenses)}
                   </Text>
                   <Text className="ml-2 text-xs text-gray-400 dark:text-white/40">
-                    / {formatCurrency(monthlyBudget)}
+                    /{' '}
+                    {userSettings.isAmountHidden
+                      ? '••••'
+                      : formatCurrency(monthlyBudget)}
                   </Text>
                 </View>
               </View>
@@ -190,7 +224,9 @@ export default function DashboardScreen() {
                   </Text>
                 </View>
                 <Text className="text-lg font-bold text-gray-900 dark:text-white">
-                  {formatCurrency(totalExpenses)}
+                  {userSettings.isAmountHidden
+                    ? '••••'
+                    : formatCurrency(totalExpenses)}
                 </Text>
               </View>
             </View>
@@ -227,6 +263,8 @@ export default function DashboardScreen() {
                   expense={exp}
                   category={getCategoryForExpense(exp.categoryId)}
                   formatCurrency={formatCurrency}
+                  onPress={() => router.push(`/add-expense?id=${exp.id}`)}
+                  isAmountHidden={userSettings.isAmountHidden}
                 />
               ))
           )}

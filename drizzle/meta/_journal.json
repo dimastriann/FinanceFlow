@@ -15,6 +15,20 @@
       "when": 1773372560947,
       "tag": "0001_square_magneto",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1773415830000,
+      "tag": "0002_budget_logs",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1773469785000,
+      "tag": "0003_amount_visibility",
+      "breakpoints": true
     }
   ]
 }

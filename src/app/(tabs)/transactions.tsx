@@ -19,8 +19,10 @@ const TransactionItem: React.FC<{
   expense: Expense;
   category?: Category;
   formatCurrency: (a: number) => string;
-}> = ({ expense, category, formatCurrency }) => (
-  <TouchableOpacity activeOpacity={0.7} className="mb-4">
+  onPress?: () => void;
+  isAmountHidden?: boolean;
+}> = ({ expense, category, formatCurrency, onPress, isAmountHidden }) => (
+  <TouchableOpacity activeOpacity={0.7} className="mb-4" onPress={onPress}>
     <GlassCard intensity={8} className="flex-row items-center p-4">
       <View
         className="mr-4 h-12 w-12 items-center justify-center rounded-2xl border"
@@ -41,14 +43,15 @@ const TransactionItem: React.FC<{
         </Text>
       </View>
       <Text className="text-lg font-bold text-gray-900 dark:text-white">
-        -{formatCurrency(expense.amount)}
+        -{isAmountHidden ? '•••' : formatCurrency(expense.amount)}
       </Text>
     </GlassCard>
   </TouchableOpacity>
 );
 
 export default function TransactionsScreen() {
-  const { expenses, categories, deleteExpense, formatCurrency } =
+  const router = useRouter();
+  const { expenses, categories, deleteExpense, formatCurrency, userSettings } =
     useExpenseStore();
 
   const [search, setSearch] = React.useState('');
@@ -136,6 +139,8 @@ export default function TransactionsScreen() {
               expense={exp}
               category={getCategoryForExpense(exp.categoryId)}
               formatCurrency={formatCurrency}
+              onPress={() => router.push(`/add-expense?id=${exp.id}`)}
+              isAmountHidden={userSettings.isAmountHidden}
             />
           ))
         )}

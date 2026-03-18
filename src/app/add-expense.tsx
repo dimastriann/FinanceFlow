@@ -8,7 +8,7 @@ import {
   Platform,
   ActivityIndicator,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useColorScheme } from 'nativewind';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -72,11 +72,15 @@ export default function AddExpenseScreen() {
   const {
     expenses,
     addExpense,
+    updateExpense,
     categories,
     monthlyBudget,
     categoryBudgets,
     formatCurrency,
   } = useExpenseStore();
+
+  const { id: expenseId } = useLocalSearchParams<{ id: string }>();
+  const isEditing = !!expenseId;
 
   const [amount, setAmount] = React.useState('');
   const [merchant, setMerchant] = React.useState('');
@@ -84,8 +88,22 @@ export default function AddExpenseScreen() {
   const [selectedCategoryId, setSelectedCategoryId] = React.useState<
     string | null
   >(categories.length > 0 ? categories[0].id : null);
+  const [date, setDate] = React.useState(new Date().getTime());
   const [loading, setLoading] = React.useState(false);
   const [isScanning, setIsScanning] = React.useState(false);
+
+  React.useEffect(() => {
+    if (isEditing && expenses.length > 0) {
+      const expense = expenses.find((e) => e.id === expenseId);
+      if (expense) {
+        setAmount(expense.amount.toString());
+        setMerchant(expense.merchant);
+        setNote(expense.note || '');
+        setSelectedCategoryId(expense.categoryId);
+        setDate(expense.date);
+      }
+    }
+  }, [isEditing, expenseId, expenses]);
 
   const handleScan = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -124,13 +142,23 @@ export default function AddExpenseScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     setLoading(true);
     try {
-      addExpense({
-        amount: parseFloat(amount),
-        merchant,
-        note,
-        categoryId: selectedCategoryId,
-        date: new Date().getTime(),
-      });
+      if (isEditing && expenseId) {
+        await updateExpense(expenseId, {
+          amount: parseFloat(amount),
+          merchant,
+          note,
+          categoryId: selectedCategoryId,
+          date: date,
+        });
+      } else {
+        await addExpense({
+          amount: parseFloat(amount),
+          merchant,
+          note,
+          categoryId: selectedCategoryId,
+          date: new Date().getTime(),
+        });
+      }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.back();
     } catch (error) {
@@ -156,7 +184,7 @@ export default function AddExpenseScreen() {
         >
           <View className="mb-10 mt-4 items-center">
             <Text className="mb-2 text-xs font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
-              Enter Amount
+              {isEditing ? 'Edit Amount' : 'Enter Amount'}
             </Text>
             <View className="flex-row items-center">
               <Text className="mr-2 text-3xl font-bold text-gray-900 opacity-50 dark:text-white">
@@ -280,7 +308,7 @@ export default function AddExpenseScreen() {
           </View>
 
           <CustomButton
-            title="Confirm Transaction"
+            title={isEditing ? 'Update Transaction' : 'Confirm Transaction'}
             onPress={handleSave}
             loading={loading}
             disabled={!amount}

@@ -25,6 +25,16 @@ export interface UserSettings {
   theme: string;
   currency: string;
   isBiometricEnabled: boolean;
+  isAmountHidden: boolean;
+}
+
+export interface BudgetLog {
+  id: string;
+  amount: number;
+  previousAmount: number | null;
+  categoryId: string | null;
+  period: string;
+  date: number;
 }
 
 interface ExpenseState {
@@ -32,10 +42,15 @@ interface ExpenseState {
   categories: Category[];
   monthlyBudget: number;
   categoryBudgets: Record<string, number>;
+  budgetLogs: BudgetLog[];
   userSettings: UserSettings;
   loading: boolean;
   initialize: () => Promise<void>;
   addExpense: (data: Omit<Expense, 'id'>) => Promise<void>;
+  updateExpense: (
+    id: string,
+    data: Partial<Omit<Expense, 'id'>>
+  ) => Promise<void>;
   deleteExpense: (id: string) => Promise<void>;
   setMonthlyBudget: (amount: number) => Promise<void>;
   setCategoryBudget: (categoryId: string, amount: number) => Promise<void>;
@@ -44,6 +59,7 @@ interface ExpenseState {
   formatCurrency: (amount: number) => string;
   setTheme: (theme: 'light' | 'dark') => Promise<void>;
   toggleBiometric: (enabled: boolean) => Promise<void>;
+  toggleAmountVisibility: () => Promise<void>;
 }
 
 const DEFAULT_SETTINGS: UserSettings = {
@@ -51,6 +67,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   theme: 'dark',
   currency: 'USD',
   isBiometricEnabled: false,
+  isAmountHidden: false,
 };
 
 const DEFAULT_CATEGORIES: Category[] = [
@@ -69,6 +86,7 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
   categories: [],
   monthlyBudget: 0,
   categoryBudgets: {},
+  budgetLogs: [],
   userSettings: DEFAULT_SETTINGS,
   loading: true,
 
@@ -92,6 +110,8 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
         .select()
         .from(schema.budgets)
         .where(eq(schema.budgets.period, 'current'));
+
+      const dbBudgetLogs = await db.select().from(schema.budgetLogs);
 
       const monthlyBudget =
         dbBudgets.find((b: any) => !b.categoryId)?.amount || 2500;
@@ -118,6 +138,7 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
           theme: dbSettingsList[0].theme,
           currency: dbSettingsList[0].currency,
           isBiometricEnabled: dbSettingsList[0].isBiometricEnabled,
+          isAmountHidden: dbSettingsList[0].isAmountHidden || false,
         };
       }
 
@@ -126,6 +147,7 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
         expenses: dbExpenses.sort((a: any, b: any) => b.date - a.date),
         monthlyBudget,
         categoryBudgets,
+        budgetLogs: dbBudgetLogs.sort((a: any, b: any) => b.date - a.date),
         userSettings: settings,
         loading: false,
       });
@@ -143,6 +165,19 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
 
     set((state) => ({
       expenses: [newExpense, ...state.expenses],
+    }));
+  },
+
+  updateExpense: async (id, data) => {
+    await db
+      .update(schema.expenses)
+      .set(data)
+      .where(eq(schema.expenses.id, id));
+
+    set((state) => ({
+      expenses: state.expenses.map((e) =>
+        e.id === id ? { ...e, ...data } : e
+      ),
     }));
   },
 
@@ -167,6 +202,18 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
         .update(schema.budgets)
         .set({ amount })
         .where(eq(schema.budgets.id, overall.id));
+
+      // Log change
+      const log = {
+        id: Math.random().toString(36).substring(7),
+        amount,
+        previousAmount: overall.amount,
+        categoryId: null,
+        period: 'current',
+        date: Date.now(),
+      };
+      await db.insert(schema.budgetLogs).values(log);
+      set((state) => ({ budgetLogs: [log, ...state.budgetLogs] }));
     } else {
       await db.insert(schema.budgets).values({
         id: Math.random().toString(36).substring(7),
@@ -174,6 +221,18 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
         period: 'current',
         categoryId: null,
       });
+
+      // Log initial set
+      const log = {
+        id: Math.random().toString(36).substring(7),
+        amount,
+        previousAmount: 0,
+        categoryId: null,
+        period: 'current',
+        date: Date.now(),
+      };
+      await db.insert(schema.budgetLogs).values(log);
+      set((state) => ({ budgetLogs: [log, ...state.budgetLogs] }));
     }
 
     set({ monthlyBudget: amount });
@@ -190,6 +249,18 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
         .update(schema.budgets)
         .set({ amount })
         .where(eq(schema.budgets.id, existing[0].id));
+
+      // Log change
+      const log = {
+        id: Math.random().toString(36).substring(7),
+        amount,
+        previousAmount: existing[0].amount,
+        categoryId,
+        period: 'current',
+        date: Date.now(),
+      };
+      await db.insert(schema.budgetLogs).values(log);
+      set((state) => ({ budgetLogs: [log, ...state.budgetLogs] }));
     } else {
       await db.insert(schema.budgets).values({
         id: Math.random().toString(36).substring(7),
@@ -197,6 +268,18 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
         period: 'current',
         categoryId,
       });
+
+      // Log initial set
+      const log = {
+        id: Math.random().toString(36).substring(7),
+        amount,
+        previousAmount: 0,
+        categoryId,
+        period: 'current',
+        date: Date.now(),
+      };
+      await db.insert(schema.budgetLogs).values(log);
+      set((state) => ({ budgetLogs: [log, ...state.budgetLogs] }));
     }
 
     set((state) => ({
@@ -275,6 +358,21 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
       userSettings: {
         ...state.userSettings,
         isBiometricEnabled: enabled,
+      },
+    }));
+  },
+
+  toggleAmountVisibility: async () => {
+    const newValue = !get().userSettings.isAmountHidden;
+    await db
+      .update(schema.userSettings)
+      .set({ isAmountHidden: newValue })
+      .where(eq(schema.userSettings.id, 'current'));
+
+    set((state) => ({
+      userSettings: {
+        ...state.userSettings,
+        isAmountHidden: newValue,
       },
     }));
   },

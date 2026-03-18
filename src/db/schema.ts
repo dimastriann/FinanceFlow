@@ -33,4 +33,16 @@ export const userSettings = sqliteTable('user_settings', {
   isBiometricEnabled: integer('is_biometric_enabled', { mode: 'boolean' })
     .notNull()
     .default(false),
+  isAmountHidden: integer('is_amount_hidden', { mode: 'boolean' })
+    .notNull()
+    .default(false),
+});
+
+export const budgetLogs = sqliteTable('budget_logs', {
+  id: text('id').primaryKey(),
+  amount: real('amount').notNull(),
+  previousAmount: real('previous_amount'),
+  categoryId: text('category_id').references(() => categories.id),
+  period: text('period').notNull(),
+  date: integer('date').notNull(), // Timestamp
 });
