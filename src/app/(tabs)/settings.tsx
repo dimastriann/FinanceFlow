@@ -7,11 +7,13 @@ import {
   Switch,
   Alert,
   TextInput,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useExpenseStore } from '../../store/useExpenseStore';
 import { GlassCard } from '../../components/common/GlassCard';
+import * as exportUtils from '../../utils/exportUtils';
 
 interface SettingItemProps {
   icon: string;
@@ -78,9 +80,14 @@ export default function SettingsScreen() {
     setCurrency,
     setTheme,
     toggleBiometric,
+    initialize,
   } = useExpenseStore();
   const [isEditing, setIsEditing] = React.useState(false);
   const [tempName, setTempName] = React.useState(userSettings.userName);
+  const [exportModalVisible, setExportModalVisible] = React.useState(false);
+  const [selectedPeriod, setSelectedPeriod] =
+    React.useState<exportUtils.ExportType>('monthly');
+  const [isExporting, setIsExporting] = React.useState(false);
 
   const handleLogout = () => {
     router.replace('/(auth)');
@@ -267,6 +274,65 @@ export default function SettingsScreen() {
         </GlassCard>
       </View>
 
+      <View className="mb-10">
+        <Text className="mb-4 ml-1 text-xs font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
+          Data Management
+        </Text>
+        <GlassCard intensity={10} className="p-0 px-4">
+          <SettingItem
+            isDark={isDark}
+            icon="share-outline"
+            iconColor="#007AFF"
+            label="Export Report"
+            onPress={() => setExportModalVisible(true)}
+          />
+          <SettingItem
+            isDark={isDark}
+            icon="cloud-upload-outline"
+            iconColor="#34C759"
+            label="Backup Data"
+            onPress={async () => {
+              try {
+                await exportUtils.backupData();
+              } catch (err: any) {
+                Alert.alert('Backup Error', err.message);
+              }
+            }}
+          />
+          <SettingItem
+            isDark={isDark}
+            icon="cloud-download-outline"
+            iconColor="#FF9500"
+            label="Restore Data"
+            isLast
+            onPress={async () => {
+              Alert.alert(
+                'Restore Data',
+                'This will overwrite all current data. Are you sure?',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Restore',
+                    style: 'destructive',
+                    onPress: async () => {
+                      try {
+                        const success = await exportUtils.restoreData();
+                        if (success) {
+                          await initialize();
+                          Alert.alert('Success', 'Data restored successfully');
+                        }
+                      } catch (err: any) {
+                        Alert.alert('Restore Error', err.message);
+                      }
+                    },
+                  },
+                ]
+              );
+            }}
+          />
+        </GlassCard>
+      </View>
+
       <TouchableOpacity
         onPress={handleLogout}
         className="dark:bg-error/10 bg-error/5 dark:border-error/20 border-error/10 mb-20 flex-row items-center justify-center rounded-2xl border py-4"
@@ -283,6 +349,101 @@ export default function SettingsScreen() {
           Powered by Google Gemini AI
         </Text>
       </View>
+
+      <Modal
+        visible={exportModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setExportModalVisible(false)}
+      >
+        <View className="flex-1 justify-end bg-black/50">
+          <View className="rounded-t-3xl bg-white p-6 dark:bg-[#1A1A1A]">
+            <View className="mb-6 flex-row items-center justify-between">
+              <Text className="text-xl font-bold text-gray-900 dark:text-white">
+                Export Report
+              </Text>
+              <TouchableOpacity onPress={() => setExportModalVisible(false)}>
+                <Ionicons name="close-circle" size={28} color="#8E8E93" />
+              </TouchableOpacity>
+            </View>
+
+            <Text className="mb-3 text-sm font-bold uppercase tracking-widest text-gray-500">
+              Period
+            </Text>
+            <View className="mb-6 flex-row flex-wrap gap-2">
+              {(['daily', 'weekly', 'monthly', 'yearly'] as const).map((p) => (
+                <TouchableOpacity
+                  key={p}
+                  onPress={() => setSelectedPeriod(p)}
+                  className={`rounded-xl px-4 py-2 ${selectedPeriod === p ? 'bg-accent' : 'bg-gray-100 dark:bg-white/5'}`}
+                >
+                  <Text
+                    className={`font-bold ${selectedPeriod === p ? 'text-white' : 'text-gray-600 dark:text-gray-400'}`}
+                  >
+                    {p.toUpperCase()}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text className="mb-3 text-sm font-bold uppercase tracking-widest text-gray-500">
+              Choose Format
+            </Text>
+            <View className="gap-3">
+              {[
+                {
+                  id: 'csv',
+                  label: 'CSV (Spreadsheet)',
+                  icon: 'document-text',
+                  color: '#007AFF',
+                },
+                {
+                  id: 'xlsx',
+                  label: 'Excel (XLSX)',
+                  icon: 'grid',
+                  color: '#34C759',
+                },
+                {
+                  id: 'pdf',
+                  label: 'PDF Report',
+                  icon: 'document',
+                  color: '#FF3B30',
+                },
+              ].map((f) => (
+                <TouchableOpacity
+                  key={f.id}
+                  disabled={isExporting}
+                  onPress={async () => {
+                    setIsExporting(true);
+                    try {
+                      await exportUtils.exportReport(
+                        selectedPeriod,
+                        f.id as any
+                      );
+                      setExportModalVisible(false);
+                    } catch (err: any) {
+                      Alert.alert('Export Error', err.message);
+                    } finally {
+                      setIsExporting(false);
+                    }
+                  }}
+                  className="flex-row items-center rounded-2xl bg-gray-100 p-4 dark:bg-white/5"
+                >
+                  <View
+                    style={{ backgroundColor: `${f.color}20` }}
+                    className="mr-4 h-10 w-10 items-center justify-center rounded-xl"
+                  >
+                    <Ionicons name={f.icon as any} size={20} color={f.color} />
+                  </View>
+                  <Text className="text-base font-bold text-gray-900 dark:text-white">
+                    {f.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
