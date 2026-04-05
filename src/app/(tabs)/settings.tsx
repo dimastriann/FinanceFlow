@@ -335,10 +335,12 @@ export default function SettingsScreen() {
 
       <TouchableOpacity
         onPress={handleLogout}
-        className="dark:bg-error/10 bg-error/5 dark:border-error/20 border-error/10 mb-20 flex-row items-center justify-center rounded-2xl border py-4"
+        className="dark:bg-error/10 bg-error/5 dark:border-error/20 border-error/10 mb-20 flex-row items-center justify-center rounded-2xl border py-4 dark:border-white/20"
       >
         <Ionicons name="log-out" size={20} color="#FF3B30" />
-        <Text className="text-error ml-2 text-base font-bold">Sign Out</Text>
+        <Text className="text-error ml-2 text-base font-bold dark:text-white">
+          Sign Out
+        </Text>
       </TouchableOpacity>
 
       <View className="items-center pb-20">

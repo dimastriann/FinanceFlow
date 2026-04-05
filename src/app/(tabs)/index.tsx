@@ -1,5 +1,14 @@
 import * as React from 'react';
-import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  useWindowDimensions,
+  LayoutAnimation,
+  Platform,
+  UIManager,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -16,6 +25,15 @@ import {
 } from '../../store/useExpenseStore';
 import { ExpenseChart } from '../../components/charts/ExpenseChart';
 import { GlassCard } from '../../components/common/GlassCard';
+import { TransactionGridItem } from '../../components/common/TransactionGridItem';
+
+// Enable LayoutAnimation on Android
+if (
+  Platform.OS === 'android' &&
+  UIManager.setLayoutAnimationEnabledExperimental
+) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 interface ExpenseItemProps {
   expense: Expense;
@@ -23,6 +41,7 @@ interface ExpenseItemProps {
   formatCurrency: (a: number) => string;
   onPress?: () => void;
   isAmountHidden?: boolean;
+  index?: number;
 }
 
 const ExpenseItem: React.FC<ExpenseItemProps> = ({
@@ -31,25 +50,26 @@ const ExpenseItem: React.FC<ExpenseItemProps> = ({
   formatCurrency,
   onPress,
   isAmountHidden,
+  index = 0,
 }) => {
   return (
-    <Animated.View entering={FadeInDown.delay(100).duration(500)}>
+    <Animated.View entering={FadeInDown.delay(100 + index * 50).duration(500)}>
       <TouchableOpacity activeOpacity={0.7} className="mb-4" onPress={onPress}>
-        <GlassCard intensity={10} className="flex-row items-center p-4">
+        <View className="flex-row items-center">
           <View
-            className="mr-4 h-12 w-12 items-center justify-center rounded-2xl border"
+            className="mr-3 h-10 w-10 items-center justify-center rounded-xl border"
             style={{
-              backgroundColor: `${category?.color || '#007AFF'}20`,
-              borderColor: `${category?.color || '#007AFF'}40`,
+              backgroundColor: `${category?.color || '#007AFF'}15`,
+              borderColor: `${category?.color || '#007AFF'}25`,
             }}
           >
-            <Text className="text-xl">{category?.icon || '💸'}</Text>
+            <Text className="text-lg">{category?.icon || '💸'}</Text>
           </View>
           <View className="flex-1">
-            <Text className="text-base font-bold text-gray-900 dark:text-white">
+            <Text className="font-bold text-gray-900 dark:text-white">
               {expense.merchant || 'Expense'}
             </Text>
-            <Text className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+            <Text className="text-xs text-gray-500 dark:text-gray-400">
               {new Date(expense.date).toLocaleDateString(undefined, {
                 month: 'short',
                 day: 'numeric',
@@ -57,10 +77,10 @@ const ExpenseItem: React.FC<ExpenseItemProps> = ({
               • {category?.name || 'General'}
             </Text>
           </View>
-          <Text className="text-lg font-bold text-gray-900 dark:text-white">
+          <Text className="text-base font-bold text-gray-900 dark:text-white">
             -{isAmountHidden ? '•••' : formatCurrency(expense.amount)}
           </Text>
-        </GlassCard>
+        </View>
       </TouchableOpacity>
     </Animated.View>
   );
@@ -68,6 +88,7 @@ const ExpenseItem: React.FC<ExpenseItemProps> = ({
 
 export default function DashboardScreen() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
   const {
     expenses,
     categories,
@@ -76,6 +97,11 @@ export default function DashboardScreen() {
     formatCurrency,
     toggleAmountVisibility,
   } = useExpenseStore();
+
+  // ─── View Mode State ───
+  const [activityViewMode, setActivityViewMode] = React.useState<
+    'list' | 'grid'
+  >('list');
 
   const initials = userSettings.userName
     .split(' ')
@@ -108,6 +134,17 @@ export default function DashboardScreen() {
   };
 
   const isDark = userSettings.theme === 'dark';
+
+  // Grid columns based on screen width
+  const numColumns = width >= 600 ? 3 : 2;
+
+  const handleActivityViewToggle = (mode: 'list' | 'grid') => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setActivityViewMode(mode);
+  };
+
+  // Recent expenses for the dashboard
+  const recentExpenses = expenses.slice(0, 4);
 
   return (
     <View
@@ -233,14 +270,52 @@ export default function DashboardScreen() {
           </GlassCard>
         </Animated.View>
 
+        {/* ─── Latest Activity Section ─── */}
         <View className="mb-20">
           <View className="mb-6 flex-row items-center justify-between">
             <Text className="text-2xl font-bold text-gray-900 dark:text-white">
               Latest Activity
             </Text>
-            <TouchableOpacity onPress={() => router.push('/transactions')}>
-              <Text className="font-bold text-accent">View all</Text>
-            </TouchableOpacity>
+            <View className="flex-row items-center">
+              {/* View Toggle */}
+              <View className="mr-3 flex-row items-center rounded-2xl border border-gray-200 bg-white p-1 dark:border-white/10 dark:bg-white/5">
+                <TouchableOpacity
+                  onPress={() => handleActivityViewToggle('list')}
+                  className={`rounded-xl px-2.5 py-1.5 ${activityViewMode === 'list' ? 'bg-accent' : ''}`}
+                >
+                  <Ionicons
+                    name="list"
+                    size={16}
+                    color={
+                      activityViewMode === 'list'
+                        ? '#FFF'
+                        : isDark
+                          ? '#999'
+                          : '#666'
+                    }
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => handleActivityViewToggle('grid')}
+                  className={`rounded-xl px-2.5 py-1.5 ${activityViewMode === 'grid' ? 'bg-accent' : ''}`}
+                >
+                  <Ionicons
+                    name="grid"
+                    size={16}
+                    color={
+                      activityViewMode === 'grid'
+                        ? '#FFF'
+                        : isDark
+                          ? '#999'
+                          : '#666'
+                    }
+                  />
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity onPress={() => router.push('/transactions')}>
+                <Text className="font-bold text-accent">View all</Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           {expenses.length === 0 ? (
@@ -248,25 +323,44 @@ export default function DashboardScreen() {
               intensity={5}
               className="items-center border-dashed border-white/10 py-12"
             >
-              <Ionicons name="receipt-outline" size={40} color="#333" />
+              <Ionicons
+                name="receipt-outline"
+                size={40}
+                color={isDark ? '#555' : '#BBB'}
+              />
               <Text className="mt-4 px-10 text-center font-medium text-gray-500">
                 Your expense list is empty. Start tracking by adding your first
                 transaction.
               </Text>
             </GlassCard>
+          ) : activityViewMode === 'list' ? (
+            recentExpenses.map((exp: Expense, index: number) => (
+              <ExpenseItem
+                key={exp.id}
+                expense={exp}
+                category={getCategoryForExpense(exp.categoryId)}
+                formatCurrency={formatCurrency}
+                onPress={() => router.push(`/add-expense?id=${exp.id}`)}
+                isAmountHidden={userSettings.isAmountHidden}
+                index={index}
+              />
+            ))
           ) : (
-            expenses
-              .slice(0, 4)
-              .map((exp: Expense) => (
-                <ExpenseItem
-                  key={exp.id}
-                  expense={exp}
-                  category={getCategoryForExpense(exp.categoryId)}
-                  formatCurrency={formatCurrency}
-                  onPress={() => router.push(`/add-expense?id=${exp.id}`)}
-                  isAmountHidden={userSettings.isAmountHidden}
-                />
-              ))
+            /* Grid View */
+            <View className="-mx-1.5 flex-row flex-wrap">
+              {recentExpenses.map((exp: Expense, index: number) => (
+                <View key={exp.id} style={{ width: `${100 / numColumns}%` }}>
+                  <TransactionGridItem
+                    expense={exp}
+                    category={getCategoryForExpense(exp.categoryId)}
+                    formatCurrency={formatCurrency}
+                    onPress={() => router.push(`/add-expense?id=${exp.id}`)}
+                    isAmountHidden={userSettings.isAmountHidden}
+                    index={index}
+                  />
+                </View>
+              ))}
+            </View>
           )}
         </View>
 

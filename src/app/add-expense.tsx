@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
+  TextInput,
   ActivityIndicator,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -183,24 +184,25 @@ export default function AddExpenseScreen() {
           layout={Layout.springify()}
         >
           <View className="mb-10 mt-4 items-center">
-            <Text className="mb-2 text-xs font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
+            <Text className="mb-2 p-1 text-xs font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
               {isEditing ? 'Edit Amount' : 'Enter Amount'}
             </Text>
-            <View className="flex-row items-center">
+            <View className="flex-row items-center rounded-xl border border-gray-200 dark:border-gray-700">
               <Text className="mr-2 text-3xl font-bold text-gray-900 opacity-50 dark:text-white">
                 $
               </Text>
-              <CustomInput
+              <TextInput
                 placeholder="0.00"
-                keyboardType="numeric"
+                keyboardType="decimal-pad"
                 value={amount}
                 onChangeText={setAmount}
-                className="mb-0"
                 style={{
-                  fontSize: 48,
+                  fontSize: 46,
                   fontWeight: 'bold',
                   minWidth: 150,
                   textAlign: 'center',
+                  color: isDark ? '#FFFFFF' : '#111827',
+                  paddingVertical: 8,
                 }}
                 placeholderTextColor={
                   isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'
@@ -228,9 +230,9 @@ export default function AddExpenseScreen() {
 
               if (overMonthly || overCategory) {
                 return (
-                  <View className="bg-error/10 border-error/20 mt-4 flex-row items-center rounded-xl border px-4 py-2">
+                  <View className="bg-error/10 border-error/20 mt-4 flex-row items-center rounded-xl border px-4 py-2 dark:border-white">
                     <Ionicons name="warning" size={16} color="#FF3B30" />
-                    <Text className="text-error ml-2 text-xs font-bold">
+                    <Text className="text-error ml-2 text-xs font-bold dark:text-white">
                       Budget Alert: Exceeds {overMonthly ? 'monthly' : ''}
                       {overMonthly && overCategory ? ' and ' : ''}
                       {overCategory ? 'category' : ''} limit!
